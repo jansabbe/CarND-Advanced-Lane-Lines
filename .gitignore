@@ -2,3 +2,5 @@ venv
 .ipynb_checkpoints
 .vscode
 .DS_Store
+__pycache__
+output_images/*
