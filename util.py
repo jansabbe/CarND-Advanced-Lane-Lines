@@ -2,6 +2,7 @@ import cv2
 import glob
 from os import makedirs
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import numpy as np
 
 def image_size(img):
@@ -9,13 +10,13 @@ def image_size(img):
     return (width, height)
 
 def images_in_directory(directory):
-    return [cv2.imread(filename) for filename in glob.glob(f'{directory}/*.jpg')]
+    return [mpimg.imread(filename) for filename in glob.glob(f'{directory}/*.jpg')]
 
-def write_images_to_directory(images, name):
+def write_images_to_directory(images, name, **kwargs):
     makedirs(f'output_images/{name}', exist_ok=True)
     for idx, image in enumerate(images):
         write_name = f'output_images/{name}/{name}_{idx+1}.jpg'
-        cv2.imwrite(write_name, image)
+        mpimg.imsave(write_name, image, **kwargs)
 
 RED = [255,0,0][::-1]
 

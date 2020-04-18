@@ -16,7 +16,7 @@ class Calibration:
         self.image = image
         self.img_size = image_size(image)
         self.chessboard_size = chessboard_size
-        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        grayscale = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         self.found_corners, self.image_points = cv2.findChessboardCorners(grayscale, chessboard_size)
         self.object_points = create_object_points(chessboard_size)
 
