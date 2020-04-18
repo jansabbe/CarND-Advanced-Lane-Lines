@@ -1,6 +1,8 @@
 import cv2
 import glob
 from os import makedirs
+import matplotlib.pyplot as plt
+import numpy as np
 
 def image_size(img):
     (height, width) = img.shape[:2]
@@ -16,3 +18,13 @@ def write_images_to_directory(images, name):
         cv2.imwrite(write_name, image)
 
 RED = [255,0,0][::-1]
+
+
+def show_side_by_side(images, edit_function, **kwargs):
+    fig = plt.figure(figsize=(15, 30))
+    for index,original_image in enumerate(images):
+        fig.add_subplot(len(images), 2, (2*index)+1)
+        plt.imshow(original_image)
+        fig.add_subplot(len(images), 2, (2*index)+2)
+        plt.imshow(edit_function(np.copy(original_image)), **kwargs)
+    plt.show()

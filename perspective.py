@@ -6,12 +6,12 @@ from util import image_size, images_in_directory, write_images_to_directory, RED
 class RegionOfInterest:
     def __init__(self, img_size):
         (self.width, self.height) = img_size
-        self.bottom_y = 0.910 * self.height
-        self.horizon_y = 0.630 * self.height
-        self.bottom_left_x = 0.231 * self.width
-        self.bottom_right_x = 0.797 * self.width
-        self.horizon_left_x = 0.460 * self.width
-        self.horizon_right_x = 0.545 * self.width
+        self.bottom_y = 0.97 * self.height
+        self.horizon_y = 0.65 * self.height
+        self.bottom_left_x = 0.173 * self.width
+        self.bottom_right_x = 0.853 * self.width
+        self.horizon_left_x = 0.442 * self.width
+        self.horizon_right_x = 0.564 * self.width
 
     @property
     def perspective(self):
@@ -28,10 +28,10 @@ class RegionOfInterest:
     def rectangle(self):
         return np.float32(
             [
-                [self.bottom_left_x, self.height-10],
-                [self.bottom_left_x, 0],
-                [self.bottom_right_x, 0],
-                [self.bottom_right_x, self.height-10],
+                [0.156 * self.width, self.height],
+                [0.156 * self.width, 0],
+                [0.781 * self.width, 0],
+                [0.781 * self.width, self.height],
             ]
         )
 
