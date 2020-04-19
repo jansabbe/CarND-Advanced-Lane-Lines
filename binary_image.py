@@ -1,12 +1,15 @@
 from util import images_in_directory, write_images_to_directory
 import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 
 NUM_WINDOWS=9
 MARGIN=100
 MINPIX=50
+SMOOTH_NB_FRAMES=10
 
 class BinaryImage:
+
     @classmethod
     def in_threshold(cls, image, min, max):
         result = np.zeros_like(image)
@@ -15,6 +18,7 @@ class BinaryImage:
 
     def __init__(self, binary_image): 
         self.binary_image = binary_image
+        (self.height, self.width) = binary_image.shape
         (nonzero_y, nonzero_x) = binary_image.nonzero()
         self.nonzero_xy = (nonzero_x, nonzero_y)
 
@@ -33,13 +37,11 @@ class BinaryImage:
 
     @property
     def midpoint_x(self):
-        (_, width) = self.binary_image.shape
-        return width//2
+        return self.width//2
 
     @property
     def midpoint_y(self):
-        (height, _) = self.binary_image.shape
-        return height//2
+        return self.height//2
         
     @property
     def lower_left(self):
@@ -60,7 +62,7 @@ class BinaryImage:
         return (left_base, right_base)
 
     def window_y_positions(self):
-        (height, _) = self.binary_image.shape
+        height = self.height
         window_height = height//NUM_WINDOWS
         return np.array([(height - window*window_height, height-(window+1)*window_height) for window in range(NUM_WINDOWS)])
 
@@ -96,11 +98,26 @@ class Window:
             return np.int(np.mean(nonzero_x))
         return self.initial_x_midpoint
     
-class Lane:
-    def __init__(self, binary_image, initial_x_midpoint):
+class PointFinder:
+    def __init__(self, binary_image, initial_x_midpoint, previous_polynomial, margin = MARGIN):
         self.binary_image = binary_image
-        self.initial_x_midpoint = initial_x_midpoint
+        self.initial_x_midpoint =initial_x_midpoint
+        self.previous_polynomial = previous_polynomial
+        self.margin = margin
+    
+    def find_nonzero_xy(self):
+        if self.previous_polynomial is not None:
+            return self.nonzero_xy_around_polynomial()
+        return self.nonzero_xy_using_windows()
 
+    def nonzero_xy_around_polynomial(self):
+        (nonzero_x, nonzero_y) = self.binary_image.nonzero_xy
+        (a, b, c) = self.previous_polynomial
+
+        indices = np.flatnonzero((nonzero_x > (a*nonzero_y**2 + b*nonzero_y + c - self.margin)) 
+            & (nonzero_x < (a*nonzero_y**2 + b*nonzero_y + c + self.margin)))
+        return (nonzero_x[indices], nonzero_y[indices])
+    
     @property
     def all_windows(self):
         x_midpoint = self.initial_x_midpoint
@@ -109,13 +126,57 @@ class Lane:
             yield window
             x_midpoint = window.new_x_midpoint
 
+    def nonzero_xy_using_windows(self):
+        nonzero_xys = [w.nonzero_xy for w in self.all_windows]
+        return (np.concatenate([nonzero_xy[0] for nonzero_xy in nonzero_xys]), np.concatenate([nonzero_xy[1] for nonzero_xy in nonzero_xys]))
+
+
+class Lane:
+    def __init__(self, binary_image, initial_x_midpoint, previous_polynomial=None):
+        self.binary_image = binary_image
+        self.initial_x_midpoint = initial_x_midpoint
+        self.point_finder = PointFinder(binary_image, initial_x_midpoint, previous_polynomial)
+
+    @property
+    def nonzero_xy(self):
+        return self.point_finder.find_nonzero_xy()
+
+    @property
+    def all_windows(self):
+        return self.point_finder.all_windows
+
+    @property
+    def polynomial(self):
+        (lane_x, lane_y) = self.nonzero_xy
+        return np.polyfit(lane_y, lane_x, 2)
+        
+    def polynomial_xy(self):
+        ploty = np.linspace(0, self.binary_image.height-1, self.binary_image.height)
+        (a,b,c) = self.polynomial
+        lanex = a*ploty**2 + b*ploty + c
+        return (lanex, ploty)
+
+    def polynomial_xy_for_cv2(self):
+        (plotx, ploty) = self.polynomial_xy()
+        return np.int_(np.array([np.transpose(np.vstack([plotx, ploty]))]))
+
+    def draw_line_on_image(self, image, color=[255,255,0], thickness=2):
+        cv2.polylines(image, self.polynomial_xy_for_cv2(), False, color, thickness)
+
+    def draw_fill_on_image(self, image, other_lane, color=[0,255,0]):
+        first_lane_points = self.polynomial_xy_for_cv2()
+        second_lane_points = np.array([np.flipud(other_lane.polynomial_xy_for_cv2()[0])])
+        points = np.hstack((first_lane_points, second_lane_points))
+        cv2.fillPoly(image, points, color)
+
+
 def absolute_sobel(image, orient='x', sobel_kernel=3):
     orientation = [1, 0] if orient == 'x' else [0, 1]
     derivative = cv2.Sobel(image, cv2.CV_64F, *orientation, ksize=sobel_kernel)
     absolute_derivative = np.absolute(derivative)
     return np.uint8(255 * absolute_derivative/np.max(absolute_derivative))
 
-def filter(image):
+def identify_lane_pixels(image):
     red_image = image[:,:,0]
     saturation_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)[:, :, 2]
     sobel_image = absolute_sobel(red_image, 'x', 9)
@@ -133,9 +194,11 @@ def annotate_lane(binary):
         w.draw_on_image(rgb_image, [255, 0, 0])
     for w in right_lane.all_windows:
         w.draw_on_image(rgb_image, [0, 0, 255])
+    left_lane.draw_line_on_image(rgb_image)
+    right_lane.draw_line_on_image(rgb_image)
     return rgb_image
 
 if __name__ == "__main__":
-    binary_images = [filter(image) for image in images_in_directory('output_images/bird_view')] 
+    binary_images = [identify_lane_pixels(image) for image in images_in_directory('output_images/bird_view')] 
     write_images_to_directory([b.to_rgb_image() for b in binary_images], 'binary_images')
     write_images_to_directory([annotate_lane(b) for b in binary_images], 'annotated_binary_images')
