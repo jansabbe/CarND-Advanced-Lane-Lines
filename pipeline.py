@@ -13,8 +13,8 @@ perspective = Perspective(region_of_interest)
 
 class Pipeline:
     def __init__(self):
-        self.previous_polynomial_left = None
-        self.previous_polynomial_right = None
+        self.previous_polynomial_left = []
+        self.previous_polynomial_right = []
 
     def pipeline(self, image):
         undistorted_image = camera.undistort(image)
@@ -33,8 +33,8 @@ class Pipeline:
         return combined_image
 
     def remember_lanes_for_next_frame(self, left_lane, right_lane):
-        self.previous_polynomial_left = left_lane.polynomial
-        self.previous_polynomial_right = right_lane.polynomial
+        self.previous_polynomial_left.append(left_lane.polynomial)
+        self.previous_polynomial_right.append(right_lane.polynomial)
 
     def find_lanes(self, bird_view_image):
         lane_pixels = identify_lane_pixels(bird_view_image)

@@ -134,10 +134,11 @@ class PointFinder:
 
 
 class Lane:
-    def __init__(self, binary_image, initial_x_midpoint, previous_polynomial=None):
+    def __init__(self, binary_image, initial_x_midpoint, previous_polynomials=[]):
         self.binary_image = binary_image
         self.initial_x_midpoint = initial_x_midpoint
-        self.point_finder = PointFinder(binary_image, initial_x_midpoint, previous_polynomial)
+        self.previous_polynomials = previous_polynomials
+        self.point_finder = PointFinder(binary_image, initial_x_midpoint, previous_polynomials[-1] if previous_polynomials else None)
 
     @property
     def nonzero_xy(self):
@@ -150,12 +151,16 @@ class Lane:
     @property
     def polynomial(self):
         (lane_x, lane_y) = self.nonzero_xy
-        return np.polyfit(lane_y, lane_x, 2)
+        (new_a, new_b, new_c) = np.polyfit(lane_y, lane_x, 2)
+        if len(self.previous_polynomials) > 0:
+            last_polynomials = self.previous_polynomials[-3:]
+            return np.mean(np.concatenate((last_polynomials, [(new_a, new_b, new_c)])), axis=0)
+        return (new_a, new_b, new_c)
 
     @property
     def scaled_polynomial(self):
-        (lane_x, lane_y) = self.nonzero_xy
-        return np.polyfit(YM_PER_PIX * lane_y, XM_PER_PIX * lane_x, 2)
+        (a, b, c) = self.polynomial
+        return (XM_PER_PIX / (YM_PER_PIX ** 2)) * a, (XM_PER_PIX / YM_PER_PIX) * b, c
 
     def polynomial_xy(self):
         ploty = np.linspace(0, self.binary_image.height - 1, self.binary_image.height)
@@ -180,29 +185,29 @@ class Lane:
         points = np.hstack((first_lane_points, second_lane_points))
         cv2.fillPoly(image, points, color)
 
-    def curve_at_bottom(self):
-        (a, b, _) = self.scaled_polynomial
+    def curve_at_bottom(self, other_lane):
+        (a1, b1, _) = self.scaled_polynomial
+        (a2, b2, _) = other_lane.scaled_polynomial
+        (a, b) = np.mean([(a1, b1), (a2, b2)], axis=0)
         y = self.binary_image.height * YM_PER_PIX
         return np.power((1 + np.square(2 * a * y + b)), 3 / 2) / np.abs(2 * a)
 
     def deviation_from_center(self, right_lane):
-        y = self.binary_image.height * YM_PER_PIX
-        (a1, b1, c1) = self.scaled_polynomial
+        y = self.binary_image.height
+        (a1, b1, c1) = self.polynomial
         left_lane_bottom = (a1 * y ** 2 + b1 * y + c1)
-        (a2, b2, c2) = right_lane.scaled_polynomial
+        (a2, b2, c2) = right_lane.polynomial
         right_lane_bottom = (a2 * y ** 2 + b2 * y + c2)
         actual_middle = left_lane_bottom + ((right_lane_bottom - left_lane_bottom) / 2)
-        perfect_middle = MIDPOINT_X * XM_PER_PIX
-        return np.abs(actual_middle - perfect_middle)
+        return np.abs(actual_middle - MIDPOINT_X) * XM_PER_PIX
 
     def draw_summary(self, image, other_lane, color=[255, 255, 255]):
-        curve = np.mean([self.curve_at_bottom(), other_lane.curve_at_bottom()])
-        text = "Curve: {:.1f}km Off center: {:.0f}cm".format(
-            curve / 1000,
-            self.deviation_from_center(other_lane) * 100)
-        (width, height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, 1, thickness=1)
+        curve = self.curve_at_bottom(other_lane)
+        curve_text = "Curve: {:.1f}km".format(curve/1000) if curve < 3000 else "Straight ahead"
+        center_text = " - Off center: {:.0f}cm".format(self.deviation_from_center(other_lane) * 100)
+        (width, height), _ = cv2.getTextSize(curve_text + center_text, cv2.FONT_HERSHEY_DUPLEX, 1, thickness=1)
         left_x = (1280 // 2) - (width // 2)
-        cv2.putText(image, text, (left_x, 700), cv2.FONT_HERSHEY_DUPLEX, 1, color)
+        cv2.putText(image, curve_text + center_text, (left_x, 700), cv2.FONT_HERSHEY_DUPLEX, 1, color)
 
 
 def absolute_sobel(image, orient='x', sobel_kernel=3):
@@ -238,7 +243,8 @@ def annotate_lane(binary):
 
 
 if __name__ == "__main__":
-    undistorted_test_images = [identify_lane_pixels(image) for image in images_in_directory('output_images/undistorted_test_images')]
+    undistorted_test_images = [identify_lane_pixels(image) for image in
+                               images_in_directory('output_images/undistorted_test_images')]
     write_images_to_directory([b.to_rgb_image() for b in undistorted_test_images], 'binary_images_perspective')
 
     binary_images = [identify_lane_pixels(image) for image in images_in_directory('output_images/bird_view')]
