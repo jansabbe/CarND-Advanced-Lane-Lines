@@ -15,6 +15,7 @@ class Pipeline:
     def __init__(self):
         self.previous_polynomial_left = []
         self.previous_polynomial_right = []
+        self.previous_curves = []
 
     def pipeline(self, image):
         undistorted_image = camera.undistort(image)
@@ -29,12 +30,13 @@ class Pipeline:
 
         self.remember_lanes_for_next_frame(left_lane, right_lane)
         combined_image = cv2.addWeighted(undistorted_image, 1, perspective_view_lane_image, 0.4, 0)
-        left_lane.draw_summary(combined_image, right_lane)
+        left_lane.draw_summary(combined_image, right_lane, self.previous_curves)
         return combined_image
 
     def remember_lanes_for_next_frame(self, left_lane, right_lane):
         self.previous_polynomial_left.append(left_lane.polynomial)
         self.previous_polynomial_right.append(right_lane.polynomial)
+        self.previous_curves.append(left_lane.curve_at_bottom(right_lane))
 
     def find_lanes(self, bird_view_image):
         lane_pixels = identify_lane_pixels(bird_view_image)

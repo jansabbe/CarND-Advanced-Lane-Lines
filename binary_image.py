@@ -201,8 +201,8 @@ class Lane:
         actual_middle = left_lane_bottom + ((right_lane_bottom - left_lane_bottom) / 2)
         return np.abs(actual_middle - MIDPOINT_X) * XM_PER_PIX
 
-    def draw_summary(self, image, other_lane, color=[255, 255, 255]):
-        curve = self.curve_at_bottom(other_lane)
+    def draw_summary(self, image, other_lane, previous_curves=[], color=[255, 255, 255]):
+        curve = np.mean(np.concatenate((previous_curves[-3:], [self.curve_at_bottom(other_lane)]))) if previous_curves else self.curve_at_bottom(other_lane)
         curve_text = "Curve: {:.1f}km".format(curve/1000) if curve < 3000 else "Straight ahead"
         center_text = " - Off center: {:.0f}cm".format(self.deviation_from_center(other_lane) * 100)
         (width, height), _ = cv2.getTextSize(curve_text + center_text, cv2.FONT_HERSHEY_DUPLEX, 1, thickness=1)
