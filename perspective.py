@@ -36,13 +36,12 @@ class RegionOfInterest:
         )
 
     def draw_rectangle(self, image):
-        cv2.polylines(image, [np.int32(self.rectangle).reshape((-1,1,2))], True, RED, thickness=2)
+        cv2.polylines(image, [np.int32(self.rectangle).reshape((-1, 1, 2))], True, RED, thickness=2)
         return image
 
     def draw_perspective(self, image):
-        cv2.polylines(image, [np.int32(self.perspective).reshape((-1,1,2))], True, RED, thickness=2)
+        cv2.polylines(image, [np.int32(self.perspective).reshape((-1, 1, 2))], True, RED, thickness=2)
         return image
-
 
 
 class Perspective:

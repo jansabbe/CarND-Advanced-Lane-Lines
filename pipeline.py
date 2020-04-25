@@ -23,10 +23,12 @@ class Pipeline:
 
         bird_view_lane_image = np.zeros_like(bird_view_image).astype(np.uint8)
         left_lane.draw_fill_on_image(bird_view_lane_image, other_lane=right_lane)
+        left_lane.draw_identified_pixels_on_image(bird_view_lane_image, [255, 0, 0])
+        right_lane.draw_identified_pixels_on_image(bird_view_lane_image, [0, 0, 255])
         perspective_view_lane_image = perspective.perspective_view(bird_view_lane_image)
 
         self.remember_lanes_for_next_frame(left_lane, right_lane)
-        combined_image = cv2.addWeighted(undistorted_image, 1, perspective_view_lane_image, 0.3, 0)
+        combined_image = cv2.addWeighted(undistorted_image, 1, perspective_view_lane_image, 0.4, 0)
         left_lane.draw_summary(combined_image, right_lane)
         return combined_image
 
@@ -43,13 +45,10 @@ class Pipeline:
 
 
 if __name__ == "__main__":
-    lane_detected = [Pipeline().pipeline(image) for image in images_in_directory('test_images')] 
+    lane_detected = [Pipeline().pipeline(image) for image in images_in_directory('test_images')]
     write_images_to_directory(lane_detected, 'full_pipeline')
 
     original = VideoFileClip("project_video.mp4")
     pipeline = Pipeline()
     lanes = original.fl_image(pipeline.pipeline)
     lanes.write_videofile('output_videos/project_video.mp4', audio=False)
-
-
-

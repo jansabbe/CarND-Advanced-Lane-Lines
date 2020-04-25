@@ -170,6 +170,10 @@ class Lane:
     def draw_line_on_image(self, image, color=[255, 255, 0], thickness=2):
         cv2.polylines(image, self.polynomial_xy_for_cv2(), False, color, thickness)
 
+    def draw_identified_pixels_on_image(self, image, color=[255, 0, 0]):
+        (nonzero_x, nonzero_y) = self.nonzero_xy
+        image[nonzero_y, nonzero_x] = color
+
     def draw_fill_on_image(self, image, other_lane, color=[0, 255, 0]):
         first_lane_points = self.polynomial_xy_for_cv2()
         second_lane_points = np.array([np.flipud(other_lane.polynomial_xy_for_cv2()[0])])
