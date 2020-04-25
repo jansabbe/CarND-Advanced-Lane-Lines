@@ -3,10 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
+MIDPOINT_X = 600
+
 NUM_WINDOWS = 9
 MARGIN = 100
 MINPIX = 50
 SMOOTH_NB_FRAMES = 10
+XM_PER_PIX = 3.7 / 800
+YM_PER_PIX = 27 / 720
 
 
 class BinaryImage:
@@ -37,29 +41,23 @@ class BinaryImage:
         return np.array_equal(self.binary_image, other.binary_image)
 
     @property
-    def midpoint_x(self):
-        return self.width // 2
-
-    @property
     def midpoint_y(self):
         return self.height // 2
 
-    @property
-    def lower_left(self):
-        return self.binary_image[self.midpoint_y:, :self.midpoint_x]
+    def lower_left(self, midpoint_x):
+        return self.binary_image[self.midpoint_y:, :midpoint_x]
 
-    @property
-    def lower_right(self):
-        return self.binary_image[self.midpoint_y:, self.midpoint_x:]
+    def lower_right(self, midpoint_x):
+        return self.binary_image[self.midpoint_y:, midpoint_x:]
 
     def peak_in(self, part):
         histogram = np.sum(part, axis=0)
         indices = np.flatnonzero(histogram == np.amax(histogram))
         return np.int(np.mean(indices))
 
-    def lane_bases(self):
-        left_base = self.peak_in(self.lower_left)
-        right_base = self.midpoint_x + self.peak_in(self.lower_right)
+    def lane_bases(self, midpoint_x=MIDPOINT_X):
+        left_base = self.peak_in(self.lower_left(midpoint_x))
+        right_base = midpoint_x + self.peak_in(self.lower_right(midpoint_x))
         return left_base, right_base
 
     def window_y_positions(self):
@@ -154,6 +152,11 @@ class Lane:
         (lane_x, lane_y) = self.nonzero_xy
         return np.polyfit(lane_y, lane_x, 2)
 
+    @property
+    def scaled_polynomial(self):
+        (lane_x, lane_y) = self.nonzero_xy
+        return np.polyfit(YM_PER_PIX * lane_y, XM_PER_PIX * lane_x, 2)
+
     def polynomial_xy(self):
         ploty = np.linspace(0, self.binary_image.height - 1, self.binary_image.height)
         (a, b, c) = self.polynomial
@@ -172,6 +175,30 @@ class Lane:
         second_lane_points = np.array([np.flipud(other_lane.polynomial_xy_for_cv2()[0])])
         points = np.hstack((first_lane_points, second_lane_points))
         cv2.fillPoly(image, points, color)
+
+    def curve_at_bottom(self):
+        (a, b, _) = self.scaled_polynomial
+        y = self.binary_image.height * YM_PER_PIX
+        return np.power((1 + np.square(2 * a * y + b)), 3 / 2) / np.abs(2 * a)
+
+    def deviation_from_center(self, right_lane):
+        y = self.binary_image.height * YM_PER_PIX
+        (a1, b1, c1) = self.scaled_polynomial
+        left_lane_bottom = (a1 * y ** 2 + b1 * y + c1)
+        (a2, b2, c2) = right_lane.scaled_polynomial
+        right_lane_bottom = (a2 * y ** 2 + b2 * y + c2)
+        actual_middle = left_lane_bottom + ((right_lane_bottom - left_lane_bottom) / 2)
+        perfect_middle = MIDPOINT_X * XM_PER_PIX
+        return np.abs(actual_middle - perfect_middle)
+
+    def draw_summary(self, image, other_lane, color=[255, 255, 255]):
+        curve = np.mean([self.curve_at_bottom(), other_lane.curve_at_bottom()])
+        text = "Curve: {:.1f}km Off center: {:.0f}cm".format(
+            curve/1000,
+            self.deviation_from_center(other_lane) * 100)
+        (width, height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, 1, thickness=1)
+        left_x = (1280 // 2) - (width // 2)
+        cv2.putText(image, text, (left_x, 700), cv2.FONT_HERSHEY_DUPLEX, 1, color)
 
 
 def absolute_sobel(image, orient='x', sobel_kernel=3):
@@ -202,6 +229,7 @@ def annotate_lane(binary):
         w.draw_on_image(rgb_image, [0, 0, 255])
     left_lane.draw_line_on_image(rgb_image)
     right_lane.draw_line_on_image(rgb_image)
+    left_lane.draw_summary(rgb_image, other_lane=right_lane)
     return rgb_image
 
 
