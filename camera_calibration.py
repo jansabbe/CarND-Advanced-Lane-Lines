@@ -1,17 +1,18 @@
-
 import numpy as np
 import cv2
 from util import image_size, images_in_directory, write_images_to_directory
 
-chessboard_size = (9,6)
+chessboard_size = (9, 6)
+
 
 def create_object_points(chessboard_size):
-    (nx,ny) = chessboard_size
-    object_points = np.zeros((nx*ny, 3), np.float32)
-    object_points[:,:2] = np.mgrid[0:nx, 0:ny].T.reshape(-1,2)
+    (nx, ny) = chessboard_size
+    object_points = np.zeros((nx * ny, 3), np.float32)
+    object_points[:, :2] = np.mgrid[0:nx, 0:ny].T.reshape(-1, 2)
     return object_points
 
-class Calibration:
+
+class ChessboardImage:
     def __init__(self, chessboard_size, image):
         self.image = image
         self.img_size = image_size(image)
@@ -27,7 +28,7 @@ class Calibration:
             cv2.drawChessboardCorners(output_image, self.chessboard_size, self.image_points, self.found_corners)
             return output_image
         return None
-        
+
 
 class Camera:
     def __init__(self, images) -> None:
@@ -37,13 +38,14 @@ class Camera:
         imgpoints = []
         img_size = None
         for image in self.calibration_images:
-            calibration = Calibration(chessboard_size, image)
-            if calibration.found_corners:
-                objpoints.append(calibration.object_points)
-                imgpoints.append(calibration.image_points)
-                self.images_with_corners.append(calibration.image_with_corner)
-                img_size = calibration.img_size
-        _, self.matrix, self.distortion_coefficients, _, _ = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
+            chessboard_image = ChessboardImage(chessboard_size, image)
+            if chessboard_image.found_corners:
+                objpoints.append(chessboard_image.object_points)
+                imgpoints.append(chessboard_image.image_points)
+                self.images_with_corners.append(chessboard_image.image_with_corner)
+                img_size = chessboard_image.img_size
+        _, self.matrix, self.distortion_coefficients, _, _ = cv2.calibrateCamera(objpoints, imgpoints, img_size, None,
+                                                                                 None)
 
     def undistort(self, image):
         return cv2.undistort(image, self.matrix, self.distortion_coefficients)

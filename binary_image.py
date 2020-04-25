@@ -194,7 +194,7 @@ class Lane:
     def draw_summary(self, image, other_lane, color=[255, 255, 255]):
         curve = np.mean([self.curve_at_bottom(), other_lane.curve_at_bottom()])
         text = "Curve: {:.1f}km Off center: {:.0f}cm".format(
-            curve/1000,
+            curve / 1000,
             self.deviation_from_center(other_lane) * 100)
         (width, height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, 1, thickness=1)
         left_x = (1280 // 2) - (width // 2)

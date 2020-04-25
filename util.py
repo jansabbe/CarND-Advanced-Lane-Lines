@@ -4,13 +4,17 @@ from os import makedirs
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
+import re
+
+def number_in_filename(path):
+    return int(re.sub('[^0-9]+', '', path))
 
 def image_size(img):
     (height, width) = img.shape[:2]
     return (width, height)
 
 def images_in_directory(directory):
-    return [mpimg.imread(filename) for filename in glob.glob(f'{directory}/*.jpg')]
+    return [mpimg.imread(filename) for filename in sorted(glob.glob(f'{directory}/*.jpg'), key=number_in_filename)]
 
 def write_images_to_directory(images, name, **kwargs):
     makedirs(f'output_images/{name}', exist_ok=True)
