@@ -14,14 +14,19 @@ image and a chessboard size, it will find the `image_points` using `cv2.findChes
 are calculated in `create_object_points()`, which generates (x, y, z) coordinates. As the image of the chessboard is flat, 
 `z` is 0 for all object points.
 
+![Finding points](output_images/corners_found/corners_found_1.jpg)
+
 The actual calibration of the camera happens in the `Camera` class in the same file. This class takes a list
 of images, and uses the `ChessboardImage` class to find the `image_points` and `object_points`. It passes these
 to the `cv2.calibrateCamera()` to calculate the `matrix` and `distortion_coefficients`.
 
 This `Camera` class also contains an `undistort()` method to actually perform distortion-correction on 
-any image.
+any image. It applies `cv2.undistort()` on the image using the `matrix` and `distortion_coefficients` that were 
+found during calibration.  
 
-![Before](./camera_cal/)
+Before                                   | After
+:---------------------------------------:|:------------------------------------------------------:
+![Before](./camera_cal/calibration1.jpg) | ![After](./output_images/undistorted/undistorted_1.jpg)
 
 ### Pipeline (single images)
 

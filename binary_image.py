@@ -234,6 +234,9 @@ def annotate_lane(binary):
 
 
 if __name__ == "__main__":
+    undistorted_test_images = [identify_lane_pixels(image) for image in images_in_directory('output_images/undistorted_test_images')]
+    write_images_to_directory([b.to_rgb_image() for b in undistorted_test_images], 'binary_images_perspective')
+
     binary_images = [identify_lane_pixels(image) for image in images_in_directory('output_images/bird_view')]
     write_images_to_directory([b.to_rgb_image() for b in binary_images], 'binary_images')
     write_images_to_directory([annotate_lane(b) for b in binary_images], 'annotated_binary_images')
